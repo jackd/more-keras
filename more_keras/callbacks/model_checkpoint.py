@@ -22,7 +22,6 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
                  load_weights_on_restart=False,
                  max_to_keep=5,
                  **kwargs):
-        tf.keras.models.load_model
         directory = os.path.expandvars(os.path.expanduser(directory))
         if not os.path.isdir(directory):
             os.makedirs(directory)
@@ -101,7 +100,7 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
             return
         with h5py.File(checkpoint) as f:
             optimizer_weight_values = load_optimizer_weights_from_hdf5_group(f)
-        self.model.optimizer.set_weights(optimizer_weight_values)
+            self.model.optimizer.set_weights(optimizer_weight_values)
 
     def _save_model(self, epoch, logs):
         super(BetterModelCheckpoint, self)._save_model(epoch, logs)
