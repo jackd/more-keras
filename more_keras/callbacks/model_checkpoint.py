@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 import os
 import tensorflow as tf
-tf.keras.callbacks.TensorBoard
 LATEST = 'LATEST'
 
 
@@ -23,6 +22,7 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
                  load_weights_on_restart=False,
                  max_to_keep=5,
                  **kwargs):
+        tf.keras.models.load_model
         directory = os.path.expandvars(os.path.expanduser(directory))
         if not os.path.isdir(directory):
             os.makedirs(directory)
@@ -36,17 +36,23 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
                              load_weights_on_restart=load_weights_on_restart,
                              **kwargs)
 
+    def reset_state(self):
+        self._started = False
+
     def on_train_begin(self, logs=None):
         self._started = True
-        return super(BetterModelCheckpoint, self).on_train_begin(logs=logs)
+        out = super(BetterModelCheckpoint, self).on_train_begin(logs=logs)
+        if self.load_weights_on_restart:
+            self.restore_optimizer()
+        return out
 
     def on_test_begin(self, logs=None):
         if not self._started and self.load_weights_on_restart:
-            self.restore()
+            self.restore_model()
 
     def on_predict_begin(self, logs=None):
         if not self._started and self.load_weights_on_restart:
-            self.restore()
+            self.restore_model()
 
     @property
     def directory(self):
@@ -57,6 +63,20 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
         return self._get_most_recently_modified_file_matching_pattern(
             self.filepath)
 
+    def checkpoint(self, checkpoint_or_epoch_or_latest):
+        if checkpoint_or_epoch_or_latest is None:
+            return None
+        elif checkpoint_or_epoch_or_latest == LATEST:
+            return self.latest_checkpoint
+        elif isinstance(checkpoint_or_epoch_or_latest, int):
+            return self.filepath.format(epoch=checkpoint_or_epoch_or_latest)
+        elif tf.io.gfile.exists(checkpoint_or_epoch_or_latest):
+            return checkpoint_or_epoch_or_latest
+        else:
+            raise ValueError(
+                'Unrecognized value for checkpoint_or_epoch_or_latest, {}'.
+                format(checkpoint_or_epoch_or_latest))
+
     @property
     def latest_epoch(self):
         checkpoint = self.latest_checkpoint
@@ -65,12 +85,23 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     def epoch(self, checkpoint):
         return int(checkpoint[-8:-3])
 
-    def restore(self, checkpoint=LATEST):
-        if isinstance(checkpoint, int):
-            checkpoint = self.filepath.format(epoch=checkpoint)
-        elif checkpoint == LATEST:
-            checkpoint = self.latest_checkpoint
-        self.model.load_weights(checkpoint)
+    def restore_model(self, checkpoint=LATEST):
+        """Does not restore optimizer weights. See `restore_optimizer`."""
+        chkpt = self.checkpoint(checkpoint)
+        if chkpt is None:
+            return
+        self.model.load_weights(self.checkpoint(checkpoint))
+
+    def restore_optimizer(self, checkpoint=LATEST):
+        """Restore weights to optimizer."""
+        from tensorflow.python.keras.saving.hdf5_format import load_optimizer_weights_from_hdf5_group  # pylint: disable=no-name-in-module
+        import h5py
+        checkpoint = self.checkpoint(checkpoint)
+        if checkpoint is None:
+            return
+        with h5py.File(checkpoint) as f:
+            optimizer_weight_values = load_optimizer_weights_from_hdf5_group(f)
+        self.model.optimizer.set_weights(optimizer_weight_values)
 
     def _save_model(self, epoch, logs):
         super(BetterModelCheckpoint, self)._save_model(epoch, logs)
