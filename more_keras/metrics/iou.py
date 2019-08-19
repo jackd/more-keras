@@ -2,10 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import gin
 import tensorflow as tf
 from tensorflow.python.keras.metrics import squeeze_or_expand_dimensions  # pylint: disable=no-name-in-module
 
 
+@gin.configurable(module='mk.metrics')
 class IntersectionOverUnion(tf.keras.metrics.Metric):
 
     def __init__(self,

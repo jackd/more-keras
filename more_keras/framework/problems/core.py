@@ -4,11 +4,13 @@ from __future__ import print_function
 
 import abc
 import collections
+import gin
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import six
 
 
+@gin.configurable(module='mk.framework')
 class Objective(object):
 
     def __init__(self, name, mode='max'):

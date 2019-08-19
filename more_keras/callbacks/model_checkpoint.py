@@ -3,9 +3,11 @@ from __future__ import division
 from __future__ import print_function
 import os
 import tensorflow as tf
+import gin
 LATEST = 'LATEST'
 
 
+@gin.configurable(module='mk.callbacks')
 class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     """
     ModelCheckpoint with slightly extended interface.
@@ -93,7 +95,10 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
     def restore_optimizer(self, checkpoint=LATEST):
         """Restore weights to optimizer."""
-        from tensorflow.python.keras.saving.hdf5_format import load_optimizer_weights_from_hdf5_group  # pylint: disable=no-name-in-module
+        # pylint: disable=no-name-in-module
+        from tensorflow.python.keras.saving.hdf5_format import \
+            load_optimizer_weights_from_hdf5_group
+        # pylint: enable=no-name-in-module
         import h5py
         checkpoint = self.checkpoint(checkpoint)
         if checkpoint is None:

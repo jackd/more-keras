@@ -4,8 +4,10 @@ from __future__ import print_function
 
 import tensorflow as tf
 import numpy as np
+import gin
 
 
+@gin.configurable(module='mk.schedules')
 class ExponentialDecayTowards(tf.keras.optimizers.schedules.ExponentialDecay):
     """Exponential decay scheduler with lower bound."""
 
@@ -46,6 +48,7 @@ class ExponentialDecayTowards(tf.keras.optimizers.schedules.ExponentialDecay):
         return config
 
 
+@gin.configurable(module='mk.schedules')
 def exponential_decay(step,
                       initial_value,
                       decay_steps,
@@ -77,6 +80,7 @@ def exponential_decay(step,
     return value
 
 
+@gin.configurable(module='mk.schedules')
 def exponential_decay_towards(step,
                               initial_value,
                               decay_steps,

@@ -40,7 +40,7 @@ def assert_all_tensors(args):
             raise ValueError('expected all tensors, but arg %d is %s' % (i, a))
 
 
-class Finalizable(object):
+class Finalizable(abc.ABC):
 
     @abc.abstractproperty
     def finalize(self):

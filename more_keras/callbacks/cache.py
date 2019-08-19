@@ -24,8 +24,9 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
     def current(cls):
         if not cls._stack:
             raise RuntimeError(
-                '`Cache` stack empty. Use this method within a context '
-                'block, e.g. `with {}() as cache: ...`'.format(cls.__name__))
+                '`{name}` stack empty. Use this method within a context '
+                'block, e.g. `with {name}() as cache: ...`'.format(
+                    name=cls.__name__))
         return cls._stack[-1]
 
     def __init__(self, update_freq=UpdateFrequency.BATCH):
@@ -61,7 +62,8 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
 
     def update_cache(self):
         self._np_values = {
-            k: tf.keras.backend.get_value(k) for k in self._tensors.keys()
+            k: tf.keras.backend.get_value(k)
+            for k in self._dirty_tensors.keys()
         }
 
     def _get_value(self, tensor):

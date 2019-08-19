@@ -5,8 +5,10 @@ from __future__ import print_function
 import os
 from absl import logging
 import tensorflow as tf
+import gin
 
 
+@gin.configurable(module='mk')
 class SessionOptions(object):
 
     def __init__(self, allow_growth=True, visible_devices=None, eager=False):

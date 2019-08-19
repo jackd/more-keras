@@ -75,6 +75,12 @@ def reshape_final_dim(tensor, final_dims):
         return fn(tensor)
 
 
+def reshape_leading_dim(tensor, leading_dims):
+    if isinstance(tensor, tf.RaggedTensor):
+        raise NotImplementedError
+    return tf.reshape(tensor, list(leading_dims) + tensor.shape[1:].as_list())
+
+
 def flatten_leading_dims(tensor, n=2):
     """Reshape `tensor` by combining `n` leading dimensions."""
     if n == 1:

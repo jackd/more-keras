@@ -114,8 +114,8 @@ def reshape_final_dim(tensor, final_dims):
                                     arguments=dict(final_dims=final_dims))
 
 
-def merge_features(node_features, edge_features):
-    return maybe_ragged_lambda_call(_utils.merge_features,
+def outer(node_features, edge_features):
+    return maybe_ragged_lambda_call(_utils.outer,
                                     [node_features, edge_features])
 
 

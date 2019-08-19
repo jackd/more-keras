@@ -1,0 +1,23 @@
+# Evaluation template for basic supervised learning
+
+# REQUIRES:
+# problem
+# validation/Pipeline spec (or validation_pipeline)
+# model_fn
+# optimizer
+# model_dir
+
+import more_keras.cli
+import more_keras.framework.train
+import more_keras.framework.pipelines
+import more_keras.utils
+
+mk.main.fn = @mk.framework.evaluate
+
+mk.framework.evaluate.problem = %problem
+mk.framework.evaluate.validation_pipeline = %validation_pipeline
+mk.framework.evaluate.model_fn = %model_fn
+mk.framework.evaluate.optimizer = %optimizer
+mk.framework.evaluate.chkpt_dir = %model_dir
+
+validation_pipeline = @validation/Pipeline()

@@ -1,9 +1,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from absl import logging
 import os
+import gin
 import tensorflow as tf
 from more_keras import callbacks as cb
+from more_keras.null_context import null_context
 
 
 def dataset_and_steps(problem, split):
@@ -11,6 +14,7 @@ def dataset_and_steps(problem, split):
                                  problem.examples_per_epoch(split))
 
 
+@gin.configurable(module='mk.framework')
 def train(problem,
           train_pipeline,
           validation_pipeline,
@@ -21,29 +25,38 @@ def train(problem,
           log_dir=None,
           fresh=False,
           verbose=True,
+          log_gin_config=True,
           extra_callbacks=None,
           train_steps=None,
           validation_steps=None):
-    with cb.aggregator.Aggregator() as callback_agg:
-        with cb.cache.Cache() as cache:
-            train_ds, val_ds = problem.get_base_dataset(('train', 'validation'))
-            train_ds = train_pipeline(train_ds)
-            val_ds = validation_pipeline(val_ds)
-            model = model_fn(train_pipeline.output_spec, problem.output_spec)
-            model.compile(optimizer=optimizer,
-                          loss=problem.loss,
-                          metrics=problem.metrics)
-            if len(cache) > 0:
-                callback_agg.append(cache)
-    callbacks = callback_agg.callbacks
-    callbacks.append(tf.keras.callbacks.TerminateOnNaN())
-
     if chkpt_dir is not None:
         chkpt_dir = os.path.expanduser(os.path.expandvars(chkpt_dir))
     if log_dir is None:
         log_dir = chkpt_dir
     if log_dir is not None:
         log_dir = os.path.expanduser(os.path.expandvars(log_dir))
+
+    if log_dir is None:
+        tensorboard = null_context()
+    else:
+        tensorboard = cb.tensorboard.BetterTensorBoard(log_dir)
+
+    with cb.aggregator.Aggregator() as callback_agg:
+        with cb.cache.Cache() as cache:
+            with tensorboard:
+                train_ds, val_ds = problem.get_base_dataset(
+                    ('train', 'validation'))
+                train_ds = train_pipeline(train_ds)
+                val_ds = validation_pipeline(val_ds)
+                model = model_fn(train_pipeline.output_spec(problem.input_spec),
+                                 problem.output_spec)
+                model.compile(optimizer=optimizer,
+                              loss=problem.loss,
+                              metrics=problem.metrics)
+            if len(cache) > 0:
+                callback_agg.append(cache)
+    callbacks = callback_agg.callbacks
+    callbacks.append(tf.keras.callbacks.TerminateOnNaN())
 
     if fresh:
         for d in log_dir, chkpt_dir:
@@ -68,18 +81,25 @@ def train(problem,
             initial_epoch = chkpt_callback.epoch(chkpt)
         callbacks.append(chkpt_callback)
 
-    if log_dir is not None:
-        log_dir = os.path.expanduser(os.path.expandvars(log_dir))
-        callbacks.append(tf.keras.callbacks.TensorBoard(log_dir))
-
     if train_steps is None:
         train_steps = problem.examples_per_epoch(
             'train') // train_pipeline.batch_size
     if validation_steps is None:
         validation_steps = problem.examples_per_epoch(
             'validation') // validation_pipeline.batch_size
+    if log_gin_config:
+        callbacks.append(cb.GinConfigSaver(log_dir))
 
-    callbacks.extend(extra_callbacks)
+    if extra_callbacks is not None:
+        callbacks.extend(extra_callbacks)
+
+    if log_dir is not None:
+        # put this last so we log any updates from other callbacks
+        callbacks.append(tensorboard)
+
+    if log_gin_config:
+        logging.info('Training starting with operative config: \n{}'.format(
+            gin.operative_config_str()))
 
     history = model.fit(
         train_ds,
@@ -94,6 +114,7 @@ def train(problem,
     return history
 
 
+@gin.configurable(module='mk.framework')
 def evaluate(problem,
              validation_pipeline,
              model_fn,
@@ -103,8 +124,9 @@ def evaluate(problem,
     with cb.aggregator.Aggregator() as callback_agg:
         with cb.cache.Cache() as cache:
             val_ds = validation_pipeline(problem.get_base_dataset('validation'))
-            model = model_fn(validation_pipeline.output_spec,
-                             problem.output_spec)
+            model = model_fn(
+                validation_pipeline.output_spec(problem.input_spec),
+                problem.output_spec)
             model.compile(optimizer=optimizer,
                           loss=problem.loss,
                           metrics=problem.metrics)

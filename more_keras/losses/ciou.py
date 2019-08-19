@@ -2,9 +2,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import gin
 import tensorflow as tf
 
 
+@gin.configurable(module='mk.losses')
 def continuous_iou_loss(y_true, y_pred, from_logits=True):
     with tf.name_scope('continuous_iou'):
         if from_logits:
@@ -19,6 +21,7 @@ def continuous_iou_loss(y_true, y_pred, from_logits=True):
     return loss
 
 
+@gin.configurable(module='mk.losses')
 class ContinousIouLoss(tf.keras.losses.Loss):
 
     def __init__(self, from_logits=True, reduction='auto', name=None):

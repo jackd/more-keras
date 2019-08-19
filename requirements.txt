@@ -1,2 +1,4 @@
 numpy
 scipy
+gin-config
+tensorflow_datasets

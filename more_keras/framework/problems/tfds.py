@@ -5,8 +5,10 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from more_keras.framework.problems.core import Problem
 import six
+import gin
 
 
+@gin.configurable(module='mk.framework')
 class TfdsProblem(Problem):
 
     def __init__(self,
@@ -17,9 +19,12 @@ class TfdsProblem(Problem):
                  input_spec=None,
                  output_spec=None,
                  as_supervised=True,
-                 split_map=None):
+                 split_map=None,
+                 download_and_prepare=True):
         if isinstance(builder, six.string_types):
             builder = tfds.builder(builder)
+        if download_and_prepare:
+            builder.download_and_prepare()
         self.builder = builder
 
         self.as_supervised = as_supervised

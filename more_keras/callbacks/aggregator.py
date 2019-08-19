@@ -29,8 +29,9 @@ class Aggregator(object):
     def current(cls):
         if not cls._stack:
             raise RuntimeError(
-                'callbacks Aggregator stack empty. Use this method within a'
-                'context block, `with {}() as cache: ...`'.format(cls.__name__))
+                '`{name}` stack empty. Use this method within a context '
+                'block, e.g. `with {name}() as cache: ...`'.format(
+                    name=cls.__name__))
         return cls._stack[-1]
 
     def append(self, callback):

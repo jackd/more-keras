@@ -2,10 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import gin
 import numpy as np
 import tensorflow as tf
 
 
+@gin.configurable(module='mk.layers')
 class VariableMomentumBatchNormalization(tf.keras.layers.BatchNormalization):
     """
     Slight modification to BatchNormalization that allows for variable momentum.

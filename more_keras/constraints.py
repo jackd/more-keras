@@ -3,8 +3,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import gin
 
 
+@gin.configurable(module='mk.constraints')
 class CompoundConstraint(tf.keras.constraints.Constraint):
 
     def __init__(self, constraints):
@@ -32,6 +34,7 @@ def compound_constraint(*constraints):
         return CompoundConstraint(constraints)
 
 
+@gin.configurable(module='mk.constraints')
 class MaxValue(tf.keras.constraints.Constraint):
 
     def __init__(self, value):
@@ -48,6 +51,7 @@ class MaxValue(tf.keras.constraints.Constraint):
         return tf.maximum(w, self._value)
 
 
+@gin.configurable(module='mk.constraints')
 class WeightDecay(tf.keras.constraints.Constraint):
     """Equivalent to regularizers.l2(decay/2) when using SGD."""
 

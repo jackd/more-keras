@@ -88,6 +88,14 @@ class UtilsTest(RaggedTestCase):
         self.assertAllEqual(y.shape.as_list(), [100])
         self.assertAllEqual(self.evaluate(y), flat_x)
 
+    def test_reshape_leading_dim(self):
+        values = tf.constant(np.random.normal(size=(10, 7)))
+        reshaped = utils.reshape_leading_dim(values, (2, 5))
+        self.assertAllEqual(reshaped.shape, (2, 5, 7))
+        self.assertAllEqual(
+            self.evaluate(reshaped).flatten(),
+            self.evaluate(values).flatten())
+
     # def test_reduce_sum(self):
     #     values = tf.constant(np.random.normal(size=(10, 10, 5)))
     #     row_lengths = tf.constant([2, 3, 5], dtype=tf.int64)

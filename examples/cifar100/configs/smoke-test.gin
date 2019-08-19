@@ -1,0 +1,6 @@
+include 'configs/base.gin'
+epochs = 2
+train.train_steps = 4
+train.validation_steps = 3
+Pipeline.batch_size = 5
+model_dir = 'models/smoke-test'
