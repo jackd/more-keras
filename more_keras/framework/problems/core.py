@@ -43,7 +43,9 @@ class Problem(object):
                  metrics=(),
                  objective=None,
                  input_spec=None,
-                 output_spec=None):
+                 output_spec=None,
+                 labels_spec=None,
+                 weights_spec=None):
         self.loss = tf.keras.losses.get(loss)
         self.metrics = [tf.keras.metrics.get(m) for m in metrics]
         if objective is None and len(self.metrics) > 0:
@@ -51,6 +53,14 @@ class Problem(object):
         self.objective = Objective.get(objective)
         self.input_spec = get_input_spec(input_spec)
         self.output_spec = get_input_spec(output_spec)
+        self.labels_spec = get_input_spec(labels_spec)
+        self.weights_spec = get_input_spec(weights_spec)
+
+    def batch_labels_and_weights(self, labels, weights=None):
+        from more_keras.meta_models import builder as b
+        return tf.nest.map_structure(
+            lambda tensor: None
+            if tensor is None else b.batched(tensor), (labels, weights))
 
     @abc.abstractmethod
     def _examples_per_epoch(self, split):
@@ -93,7 +103,10 @@ def get_input_spec(identifier):
     if identifier is None or isinstance(identifier, tf.keras.layers.InputSpec):
         return identifier
     elif isinstance(identifier, dict):
-        return tf.keras.layers.InputSpec(**identifier)
+        if identifier.get('class_name') == 'InputSpec':
+            return tf.keras.layers.InputSpec(**identifier['config'])
+        else:
+            return {k: get_input_spec(v) for k, v in identifier.items()}
     else:
         raise TypeError(
             'Cannot convert value {} to InputSpec'.format(identifier))

@@ -59,16 +59,12 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     def directory(self):
         return self._directory
 
-    @property
-    def latest_checkpoint(self):
-        return self._get_most_recently_modified_file_matching_pattern(
-            self.filepath)
-
-    def checkpoint(self, checkpoint_or_epoch_or_latest):
+    def checkpoint(self, checkpoint_or_epoch_or_latest=LATEST):
         if checkpoint_or_epoch_or_latest is None:
             return None
         elif checkpoint_or_epoch_or_latest == LATEST:
-            return self.latest_checkpoint
+            return self._get_most_recently_modified_file_matching_pattern(
+                self.filepath)
         elif isinstance(checkpoint_or_epoch_or_latest, int):
             return self.filepath.format(epoch=checkpoint_or_epoch_or_latest)
         elif tf.io.gfile.exists(checkpoint_or_epoch_or_latest):
@@ -78,13 +74,12 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
                 'Unrecognized value for checkpoint_or_epoch_or_latest, {}'.
                 format(checkpoint_or_epoch_or_latest))
 
-    @property
-    def latest_epoch(self):
-        checkpoint = self.latest_checkpoint
-        return None if checkpoint is None else self.epoch(checkpoint)
-
-    def epoch(self, checkpoint):
-        return int(checkpoint[-8:-3])
+    def epoch(self, checkpoint=LATEST):
+        checkpoint = self.checkpoint(checkpoint)
+        if checkpoint is None:
+            return None
+        else:
+            return int(checkpoint[-8:-3])
 
     def restore_model(self, checkpoint=LATEST):
         """Does not restore optimizer weights. See `restore_optimizer`."""

@@ -18,6 +18,8 @@ class TfdsProblem(Problem):
                  objective=None,
                  input_spec=None,
                  output_spec=None,
+                 labels_spec=None,
+                 weights_spec=None,
                  as_supervised=True,
                  split_map=None,
                  download_and_prepare=True):
@@ -53,6 +55,8 @@ class TfdsProblem(Problem):
             objective=objective,
             input_spec=input_spec,
             output_spec=output_spec,
+            labels_spec=labels_spec,
+            weights_spec=weights_spec,
         )
 
     def get_config(self):

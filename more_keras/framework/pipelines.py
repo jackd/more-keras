@@ -43,16 +43,20 @@ class Pipeline(object):
         else:
             return self.output_spec_fn(input_spec)
 
-    def preprocess_dataset(self, dataset):
-        if self.repeats != NO_REPEAT:
-            dataset = dataset.repeat()
-        if self.shuffle_buffer is not None:
-            dataset = dataset.shuffle(self.shuffle_buffer)
+    def map_and_batch(self, dataset):
         if self.map_fn is not None:
             dataset = dataset.map(self.map_fn, self.num_parallel_calls)
         if self.batch_size is not None:
             dataset = dataset.batch(self.batch_size,
                                     drop_remainder=self.drop_remainder)
+        return dataset
+
+    def preprocess_dataset(self, dataset):
+        if self.shuffle_buffer is not None:
+            dataset = dataset.shuffle(self.shuffle_buffer)
+        if self.repeats != NO_REPEAT:
+            dataset = dataset.repeat(self.repeats)
+        dataset = self.map_and_batch(dataset)
         if self.prefetch_buffer:
             dataset = dataset.prefetch(self.prefetch_buffer)
         return dataset

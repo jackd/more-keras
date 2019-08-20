@@ -75,7 +75,10 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
         out = self._dirty_tensors.get(tensor, None)
         if out is None:
             fn = functools.partial(self._get_value, tensor=tensor)
-            out = tf.py_function(fn, [], tensor.dtype)
+            out = tf.keras.layers.Lambda(tf.py_function,
+                                         arguments=dict(func=fn,
+                                                        inp=[],
+                                                        Tout=tensor.dtype))([])
             out.set_shape(tensor.shape)
             self._dirty_tensors[tensor] = out
 

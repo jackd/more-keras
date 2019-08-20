@@ -165,15 +165,24 @@ class Marks(object):
 class MetaNetworkBuilder(object):
     """See `help(more_keras.meta_models.builder)`."""
 
+    _stack = []
+
+    @classmethod
+    def current(cls):
+        if not cls._stack:
+            raise RuntimeError(
+                '`{name}` stack empty. Use this method within a context '
+                'block, e.g. `with {name}() as cache: ...`'.format(
+                    name=cls.__name__))
+        return cls._stack[-1]
+
     def __init__(self):
         self._prebatch_inputs = []
         self._prebatch_outputs = []
-        self._prebatch_feeds = []
         self._batched_inputs = []
         self._batched_feature_outputs = []
         self._model_inputs = []
 
-        self._prebatch_feed_dict = {}
         self._batched_inputs_dict = {}
         self._model_inputs_dict = {}
 
@@ -184,10 +193,11 @@ class MetaNetworkBuilder(object):
         return self._marks.get(tensor)
 
     def __enter__(self):
-        _builder_stack.append(self)
+        MetaNetworkBuilder._stack.append(self)
+        return self
 
     def __exit__(self, *args, **kwargs):
-        out = _builder_stack.pop()
+        out = MetaNetworkBuilder._stack.pop()
         if out is not self:
             raise RuntimeError(
                 'self not on top of stack when attempting to exit')
@@ -198,14 +208,9 @@ class MetaNetworkBuilder(object):
             labels = (labels,)
         if isinstance(weights, tf.Tensor):
             weights = (weights,)
-        prebatch_feed_values = tuple(self._prebatch_feed_dict.keys())
-        prebatch_feed_inputs = tuple(
-            self._prebatch_feed_dict[k] for k in prebatch_feed_values)
         return Preprocessor.from_io(
             tuple(self._prebatch_inputs),
             tuple(self._prebatch_outputs),
-            prebatch_feed_inputs,
-            prebatch_feed_values,
             tuple(self._batched_inputs),
             tuple(self._batched_feature_outputs),
             labels,
@@ -246,32 +251,6 @@ class MetaNetworkBuilder(object):
         inp = layer_utils.lambda_call(tf.squeeze, inp, axis=0)
         self._mark(inp, Marks.PREBATCH)
         return inp
-
-    def prebatch_feed(self, tensor):
-        """
-        Denote a learnable tensor as being used in the prebatch mapping.
-
-        This allows learned model parameters (or tensors derived from them) to
-        be used in the preprocessing. The resulting mapped datasets need to be
-        iterated over by an reinitializable iterator and the values used will
-        only be updated after each reinitialization.
-
-        Gradients will not be propagated through the batching/mapping process.
-
-        For example, graph networks with connections based on a KDTree
-        ball-search might have trained parameters that influence the radius of
-        that ball search.
-        """
-        if tensor in self._prebatch_feed_dict:
-            return self._prebatch_feed_dict[tensor]
-        self._mark(tensor, Marks.MODEL)
-        inp = tf.keras.layers.Input(shape=tensor.shape, dtype=tensor.dtype)
-        # inp = tf.keras.layers.Input(
-        #     tensor=utils.lambda_call(tf.expand_dims, tensor, axis=0))
-        out = layer_utils.lambda_call(tf.squeeze, inp, axis=0)
-        self._mark(out, Marks.PREBATCH, recursive=False)
-        self._prebatch_feed_dict[tensor] = inp
-        return out
 
     def prebatch_inputs_from(self, dataset):
         """
@@ -417,51 +396,44 @@ class MetaNetworkBuilder(object):
         return self.as_model_input(self.batched(tensor))
 
 
-# for use with context blocks
-_base_builder = MetaNetworkBuilder()
-_builder_stack = [_base_builder]
+current = MetaNetworkBuilder.current
 
 
 def prebatch_input(shape, dtype):
     """See `MetaNetworkBuilder.prebatch_input`."""
-    return _builder_stack[-1].prebatch_input(shape=shape, dtype=dtype)
-
-
-def prebatch_feed(tensor):
-    """See `MetaNetworkBuilder.prebatch_feed`."""
-    return _builder_stack[-1].prebatch_feed(tensor)
+    return current().prebatch_input(shape=shape, dtype=dtype)
 
 
 def prebatch_inputs_from(dataset):
     """See `MetaNetworkBuilder.prebatch_inputs_from`."""
-    return _builder_stack[-1].prebatch_inputs_from(dataset)
+    return current().prebatch_inputs_from(dataset)
 
 
 def batched(tensor):
     """See `MetaNetworkBuilder.batched`."""
-    return _builder_stack[-1].batched(tensor)
+    return current().batched(tensor)
 
 
 def as_model_input(tensor):
     """See `MetaNetworkBuilder.as_model_input`."""
-    return _builder_stack[-1].as_model_input(tensor)
+    return current().as_model_input(tensor)
 
 
 def as_batched_model_input(tensor):
     """See `MetaNetworkBuilder.as_batched_model_input`."""
-    return _builder_stack[-1].as_batched_model_input(tensor)
+    return current().as_batched_model_input(tensor)
 
 
 def preprocessor(labels):
     """See `MetaNetworkBuilder.preprocessor`."""
-    return _builder_stack[-1].preprocessor(labels)
+    return current().preprocessor(labels)
 
 
 def model(outputs):
     """See `MetaNetworkBuilder.model`."""
-    return _builder_stack[-1].model(outputs)
+    return current().model(outputs)
 
 
 def get_mark(tensor):
     """See `MetaNetworkBuilder.get_mark`."""
-    return _builder_stack[-1].get_mark(tensor)
+    return current().get_mark(tensor)

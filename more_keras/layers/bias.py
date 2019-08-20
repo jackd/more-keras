@@ -3,8 +3,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import gin
 
 
+@gin.configurable(module='mk.layers')
 class AddBias(tf.keras.layers.Layer):
 
     def __init__(self, initializer=None, dtype=tf.float32, **kwargs):

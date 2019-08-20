@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import os
-import tensorflow as tf
 import gin
 from absl import logging
 
@@ -22,6 +21,7 @@ class UpdateFrequency(object):
 
 
 def compute_output_spec(input_spec, map_fn):
+    import tensorflow as tf
     with tf.Graph().as_default():  # pylint: disable=not-context-manager
         inp = tf.keras.layers.Input(shape=input_spec.shape,
                                     dtype=input_spec.dtype)[0]

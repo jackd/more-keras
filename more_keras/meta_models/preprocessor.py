@@ -36,11 +36,9 @@ def batch_dataset(dataset, batch_size, padding_values=None, **kwargs):
 
 class Preprocessor(object):
 
-    def __init__(self, prebatch_model, prebatch_feed_values, batched_model,
-                 num_labels, num_weights):
+    def __init__(self, prebatch_model, batched_model, num_labels, num_weights):
         self._prebatch_model = prebatch_model
         self._batched_model = batched_model
-        self._prebatch_feed_values = prebatch_feed_values
         self._num_labels = num_labels
         self._num_weights = num_weights
 
@@ -51,13 +49,19 @@ class Preprocessor(object):
                     'Expected no trainable variables in %s model but got %s' %
                     (name, str(m.trainable_variables)))
 
+    @property
+    def prebatch_model(self):
+        return self._prebatch_model
+
+    @property
+    def batched_model(self):
+        return self._batched_model
+
     @classmethod
     def from_io(
             cls,
             prebatch_inputs,
             prebatch_outputs,
-            prebatch_feed_inputs,
-            prebatch_feed_values,
             batched_inputs,
             batched_outputs,
             batched_labels,
@@ -69,18 +73,17 @@ class Preprocessor(object):
             batched_weights = batched_weights,
         elif batched_weights is None:
             batched_weights = ()
-        prebatch_model = tf.keras.models.Model(inputs=prebatch_inputs +
-                                               prebatch_feed_inputs,
+        prebatch_model = tf.keras.models.Model(inputs=prebatch_inputs,
                                                outputs=prebatch_outputs)
         batched_model = tf.keras.models.Model(inputs=batched_inputs,
                                               outputs=batched_outputs +
                                               batched_labels + batched_weights)
-        return Preprocessor(prebatch_model, prebatch_feed_values, batched_model,
-                            len(batched_labels), len(batched_weights))
+        return Preprocessor(prebatch_model, batched_model, len(batched_labels),
+                            len(batched_weights))
 
     def prebatch_map(self, *args, **kwargs):
         inputs = tf.nest.flatten((args, kwargs))
-        inputs = tuple(inputs) + self._prebatch_feed_values
+        inputs = tuple(inputs)
         inputs = [tf.expand_dims(a, axis=0) for a in inputs]
         outputs = self._prebatch_model(inputs)
         return (outputs,) if isinstance(outputs, tf.Tensor) else tuple(outputs)
