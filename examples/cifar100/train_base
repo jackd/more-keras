@@ -1,0 +1,2 @@
+#!/bin/bash
+python -m more_keras '$MK_CONFIG/train' base

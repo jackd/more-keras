@@ -1,4 +1,3 @@
-"""DEFAULT initial values are replaced with relevant FLAG values."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -11,39 +10,44 @@ import six
 import numpy as np
 import gin
 
-DEFAULT = '__default__'
-
-flags.DEFINE_string(
-    'config_dir',
-    None,
-    help='Root config directory. `config` paths are relative to this.')
-flags.DEFINE_multi_string(
-    'config', [],
-    help=('List of paths to the config files. Relative paths are relative to '
-          '`config_dir` if provided.'))
-flags.DEFINE_multi_string(
-    'mk_config', [],
-    help='List of paths to the config files relative to mk config dir.')
+flags.DEFINE_multi_string('config_files', [],
+                          'config files appended to positional args.')
 flags.DEFINE_multi_string('bindings', [],
                           'Newline separated list of gin parameter bindings.')
+flags.DEFINE_boolean('incl_rel',
+                     default=True,
+                     help='Whether or not to enable_relative_includes')
+flags.DEFINE_boolean('expand_vars',
+                     default=True,
+                     help='Whether or not to enable vars/user in includes')
 
 
-def parse_cli_config(finalize_config=True):
+@gin.configurable(module='mk')
+def logging_config(to_file=True, log_dir=None, program_name='more_keras'):
+    if to_file:
+        log_dir = os.path.expanduser(os.path.expandvars(log_dir))
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        logging.info('Logging to {}'.format(log_dir))
+        logging.get_absl_handler().use_absl_log_file(log_dir=log_dir,
+                                                     program_name=program_name)
+
+
+def get_gin_summary(argv):
     """
-    Parse config from flags.
+    Collect GinSummary from command line args
 
-    Parses mk_configs, then configs, then bindings.
+    Args:
+        argv: clargs that weren't passed by absl. Interpretted as config files
+        finalize_config: if True, config is finalized after parsing.
+
+    Returns:
+        GinSummary object
     """
-    from more_keras import config
+    from more_keras.gin_utils.summary import GinSummary
     FLAGS = flags.FLAGS
-    config_files = config.fix_configs(FLAGS.config)
-    mk_config_files = config.fix_configs(FLAGS.mk_config)
-    config.parse_mk_config(mk_config_files)
-    config.parse_relative_config(config_dir=FLAGS.config_dir,
-                                 config_files=config_files)
-    gin.parse_config(FLAGS.bindings)
-    if finalize_config:
-        gin.finalize()
+    return GinSummary(os.getcwd(), FLAGS.incl_rel, FLAGS.expand_vars,
+                      argv[1:] + FLAGS.config_files, FLAGS.bindings)
 
 
 def assert_clargs_parsed(argv, max_allowed=1):

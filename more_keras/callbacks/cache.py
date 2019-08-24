@@ -7,6 +7,10 @@ import functools
 from more_keras.utils import UpdateFrequency
 
 
+def py_function_lambda(args, func, Tout):
+    return tf.py_function(func, args, Tout=Tout)
+
+
 class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disable=no-member
     """
     Workaround for using model parameters in dataset map functions.
@@ -31,7 +35,7 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
 
     def __init__(self, update_freq=UpdateFrequency.BATCH):
         self._dirty_tensors = {}  # dict mapping tensors to py_function tensors
-        self._np_values = None
+        self._np_values = {}
         UpdateFrequency.validate(update_freq)
         self._update_freq = update_freq
 
@@ -61,10 +65,10 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
         self.update_cache()
 
     def update_cache(self):
-        self._np_values = {
+        self._np_values.update({
             k: tf.keras.backend.get_value(k)
             for k in self._dirty_tensors.keys()
-        }
+        })
 
     def _get_value(self, tensor):
         return self._np_values[tensor]
@@ -75,14 +79,17 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
         out = self._dirty_tensors.get(tensor, None)
         if out is None:
             fn = functools.partial(self._get_value, tensor=tensor)
-            out = tf.keras.layers.Lambda(tf.py_function,
+            out = tf.keras.layers.Lambda(py_function_lambda,
                                          arguments=dict(func=fn,
-                                                        inp=[],
                                                         Tout=tensor.dtype))([])
             out.set_shape(tensor.shape)
             self._dirty_tensors[tensor] = out
 
         return out
+
+    def get_cached(self, tensor, value):
+        self._np_values.setdefault(tensor, value)
+        return self[tensor]
 
     def __iter__(self):
         return iter(self._dirty_tensors)
@@ -94,5 +101,5 @@ class Cache(tf.keras.callbacks.Callback, collections.Mapping):  # pylint: disabl
 current = Cache.current
 
 
-def get_cached(tensor):
-    return current()[tensor]
+def get_cached(tensor, default_value):
+    return current().get_cached(tensor, default_value)

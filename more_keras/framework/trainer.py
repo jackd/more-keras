@@ -159,45 +159,33 @@ class Trainer(object):
     def output_spec(self):
         return self.problem.output_spec
 
-    def _saver_callback(self, chkpt_dir):
-        return cb.BetterModelCheckpoint(chkpt_dir, load_weights_on_restart=True)
+    def _saver_callback(self, model_dir):
+        return cb.BetterModelCheckpoint(model_dir, load_weights_on_restart=True)
 
     def train(self,
               epochs,
-              chkpt_dir,
-              log_dir=None,
-              log_gin_config=True,
-              log_model_summary=True,
+              model_dir,
+              save_gin_config=True,
               verbose=True,
               fresh=False,
               extra_callbacks=None,
               train_steps=None,
               validation_steps=None):
-        if chkpt_dir is not None:
-            chkpt_dir = os.path.expanduser(os.path.expandvars(chkpt_dir))
-        if log_dir is None:
-            log_dir = chkpt_dir
-        if log_dir is not None:
-            log_dir = os.path.expanduser(os.path.expandvars(log_dir))
+        if model_dir is not None:
+            model_dir = os.path.expanduser(os.path.expandvars(model_dir))
+
         callbacks = list(self._callbacks)
         callbacks.append(tf.keras.callbacks.TerminateOnNaN())
 
-        if fresh:
-            for d in log_dir, chkpt_dir:
-                if tf.io.gfile.exists(d):
-                    tf.io.gfile.rmtree(d)
-                tf.io.gfile.makedirs(d)
-        else:
-            for d in log_dir, chkpt_dir:
-                if not tf.io.gfile.exists(d):
-                    tf.io.gfile.makedirs(d)
+        if fresh and tf.io.gfile.exists(model_dir):
+            tf.io.gfile.rmtree(model_dir)
 
-        if chkpt_dir is None:
+        if model_dir is None:
             initial_epoch = 0
         else:
-            if not tf.io.gfile.isdir(chkpt_dir):
-                tf.io.gfile.makedirs(chkpt_dir)
-            chkpt_callback = self._saver_callback(chkpt_dir)
+            if not tf.io.gfile.isdir(model_dir):
+                tf.io.gfile.makedirs(model_dir)
+            chkpt_callback = self._saver_callback(model_dir)
             chkpt = chkpt_callback.checkpoint()
             if chkpt is None:
                 initial_epoch = 0
@@ -210,25 +198,23 @@ class Trainer(object):
         if validation_steps is None:
             validation_steps = self.steps_per_epoch('validation')
 
-        if log_gin_config and log_dir is not None:
-            callbacks.append(cb.GinConfigSaver(log_dir))
-            logging.info('Training starting with operative config: \n{}'.format(
-                gin.operative_config_str()))
+        # this will be logged anyway, but sometimes is nice to have separately
+        if save_gin_config and model_dir is not None:
+            callbacks.append(cb.GinConfigSaver(model_dir))
 
-        if log_model_summary and log_dir is not None:
-            path = os.path.join(log_dir,
-                                'model-summary-{}.txt'.format(initial_epoch))
-            with open(path, 'w') as fp:
-                self.model.summary(
-                    print_fn=lambda s: fp.write('{}\n'.format(s)))
-
+        # user supplied extra callbacks
         if extra_callbacks is not None:
             callbacks.extend(extra_callbacks)
 
-        if log_dir is not None:
-            # put this last so we log any updates from other callbacks
-            self._tensorboard.log_dir = log_dir
+        # put this last so we log any updates from other callbacks
+        if model_dir is not None:
+            self._tensorboard.log_dir = model_dir
             callbacks.append(self._tensorboard)
+
+        # log operative config and model summary
+        logging.info('Training starting with operative config: \n{}'.format(
+            gin.operative_config_str()))
+        self.model.summary(print_fn=logging.info)
 
         history = self.model.fit(
             self.get_dataset('train'),
@@ -243,15 +229,15 @@ class Trainer(object):
         return history
 
     def evaluate(self,
-                 chkpt_dir,
+                 model_dir,
                  steps=None,
                  verbose=True,
                  extra_callbacks=None):
         if steps is None:
             steps = self.steps_per_epoch('validation')
         callbacks = list(self._callbacks)
-        if chkpt_dir is not None:
-            callbacks.append(self._saver_callback(chkpt_dir))
+        if model_dir is not None:
+            callbacks.append(self._saver_callback(model_dir))
         if extra_callbacks is not None:
             callbacks.extend(extra_callbacks)
         return self.model.evaluate(self.get_dataset('validation'),
@@ -306,9 +292,8 @@ class MetaTrainer(Trainer):
 @gin.configurable(module='mk.framework')
 def train(trainer,
           epochs,
-          chkpt_dir,
-          log_dir=None,
-          log_gin_config=True,
+          model_dir,
+          save_gin_config=True,
           verbose=True,
           fresh=False,
           extra_callbacks=None,
@@ -316,9 +301,8 @@ def train(trainer,
           validation_steps=None):
     return trainer.train(
         epochs=epochs,
-        chkpt_dir=chkpt_dir,
-        log_dir=log_dir,
-        log_gin_config=log_gin_config,
+        model_dir=model_dir,
+        save_gin_config=save_gin_config,
         verbose=verbose,
         fresh=fresh,
         extra_callbacks=extra_callbacks,
@@ -330,13 +314,13 @@ def train(trainer,
 @gin.configurable(module='mk.framework')
 def evaluate(
         trainer,
-        chkpt_dir,
+        model_dir,
         steps=None,
         verbose=True,
         extra_callbacks=None,
 ):
     trainer.evaluate(
-        chkpt_dir=chkpt_dir,
+        model_dir=model_dir,
         steps=steps,
         verbose=verbose,
         extra_callbacks=extra_callbacks,

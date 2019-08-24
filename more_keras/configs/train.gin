@@ -22,9 +22,15 @@ mk.framework.Trainer.optimizer_fn = %optimizer_fn
 
 mk.framework.train.trainer = %trainer
 mk.framework.train.epochs = %epochs
-mk.framework.train.chkpt_dir = %model_dir
-mk.framework.train.log_dir = %model_dir
+mk.framework.train.model_dir = %model_dir
 mk.framework.train.fresh = %fresh
+
+mk.logging_config.to_file = True
+mk.logging_config.log_dir = %model_dir
+mk.logging_config.program_name = %proc_name
+mk.utils.proc.title = %proc_name
+
+proc_name = 'mk-train'
 
 trainer = @mk.framework.Trainer()
 fresh = False

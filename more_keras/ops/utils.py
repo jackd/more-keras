@@ -1,9 +1,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from tensorflow.python.ops.ragged import ragged_util as _ragged_util  # pylint: disable=no-name-in-module
 import functools
 import numpy as np
 import tensorflow as tf
+
+repeat = _ragged_util.repeat
 
 
 def outer(node_features, edge_features):

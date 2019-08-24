@@ -173,3 +173,18 @@ def _leading_dim(x, dtype=tf.int64):
 
 
 leading_dim = lambda_wrapper(_leading_dim)
+
+
+def _repeat(args, axis, name=None):
+    data, repeats = args
+    return _utils.repeat(data, repeats, axis, name=name)
+
+
+def repeat(data, repeats, axis, name=None):
+    return tf.keras.layers.Lambda(_repeat, arguments=dict(axis=axis, name=name))
+
+
+def concat(values, axis, name='concat'):
+    return tf.keras.layers.Lambda(tf.concat,
+                                  arguments=dict(axis=axis,
+                                                 name=name))(list(values))

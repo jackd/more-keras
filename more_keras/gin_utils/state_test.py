@@ -4,7 +4,7 @@ from __future__ import print_function
 
 from absl.testing import absltest
 import gin
-from more_keras.gin_state import GinState
+from more_keras.gin_utils.state import GinState
 
 
 @gin.configurable

@@ -4,6 +4,7 @@ from __future__ import print_function
 import tensorflow as tf
 import collections
 import functools
+import six
 from more_keras.utils import UpdateFrequency
 import gin
 
@@ -84,7 +85,7 @@ class BetterTensorBoard(tf.keras.callbacks.TensorBoard,
         if logs is None:
             logs = {}
         np_values = {
-            k: tf.keras.backend.get_value(k) for k in self._tensors.keys()
+            k: tf.keras.backend.get_value(v) for k, v in self._tensors.items()
         }
         for k in np_values:
             if k in logs:
@@ -93,6 +94,8 @@ class BetterTensorBoard(tf.keras.callbacks.TensorBoard,
         return logs
 
     def __setitem__(self, key, tensor):
+        if not isinstance(key, six.string_types):
+            raise KeyError('Only string keys allowed')
         if key in self._tensors and self[key] != tensor:
             raise KeyError(
                 'key {} already present with different value'.format(key))

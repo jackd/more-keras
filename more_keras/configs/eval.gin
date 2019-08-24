@@ -20,4 +20,11 @@ mk.framework.evaluate.model_fn = %model_fn
 mk.framework.evaluate.optimizer = %optimizer
 mk.framework.evaluate.chkpt_dir = %model_dir
 
+mk.logging_config.to_file = True
+mk.logging_config.log_dir = %model_dir
+mk.logging_config.program_name = %proc_name
+mk.utils.proc.title = %proc_name
+
+proc_name = 'mk-val'
+
 validation_pipeline = @validation/Pipeline()

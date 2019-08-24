@@ -1,4 +1,4 @@
-import parts
+import more_keras._cifar100_parts
 import more_keras.keras_configurables
 import more_keras.schedules
 import more_keras.framework.pipelines
@@ -29,5 +29,6 @@ ExponentialDecayTowards.clip_value = 1e-5
 
 model_fn = @get_model
 
-model_dir = 'models/base'
+model_dir = '/tmp/more-keras/models/cifar100-base'
+# model_dir = '~/tmp/cifar'
 epochs = 10
