@@ -175,6 +175,17 @@ class RaggedArray(object):
         # mat.sort_indices()
         # return RaggedArray.from_row_splits(mat.data, mat.indptr)
 
+    def get_slice(self, sl):
+        if not (sl.step == 1 or sl.step is None):
+            raise NotImplementedError
+        start = sl.start
+        stop = sl.stop
+        row_start = self.row_splits[0 if start is None else start]
+        row_stop = self.row_splits[-1 if stop is None else stop]
+        return RaggedArray.from_row_lengths(
+            self.values[row_start:row_stop],
+            row_lengths=self.row_lengths[start:stop])
+
     def __getitem__(self, indices):
         if (isinstance(indices, int) or
                 isinstance(indices, np.ndarray) and len(indices.shape) == 0 and
@@ -189,6 +200,8 @@ class RaggedArray(object):
                 return self.gather(indices)
             else:
                 raise ValueError('Indices must be ')
+        elif isinstance(indices, slice):
+            return self.get_slice(indices)
         else:
             assert (isinstance(indices, tuple))
             i, j = indices[:2]

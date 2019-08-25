@@ -62,6 +62,13 @@ class RaggedArrayTest(unittest.TestCase):
         np.testing.assert_equal(masked.row_splits, masked_row_splits)
         np.testing.assert_equal(masked.row_lengths, masked_row_lengths)
 
+    def test_slice(self):
+        ragged_lists = [[0, 1, 2, 3], [4, 5, 6], [7]]
+        rag = RaggedArray.from_ragged_lists(ragged_lists)
+        for sl in slice(1, None), slice(2), slice(1, 2):
+            np.testing.assert_equal(rag[sl].values,
+                                    np.concatenate(ragged_lists[sl], axis=0))
+
 
 if __name__ == '__main__':
     unittest.main()

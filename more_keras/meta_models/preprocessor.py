@@ -86,7 +86,13 @@ class Preprocessor(object):
         inputs = tuple(inputs)
         inputs = [tf.expand_dims(a, axis=0) for a in inputs]
         outputs = self._prebatch_model(inputs)
-        return (outputs,) if isinstance(outputs, tf.Tensor) else tuple(outputs)
+        # not sure why keras can't handle the following
+        outputs = (outputs,) if isinstance(outputs,
+                                           tf.Tensor) else tuple(outputs)
+        for actual, expected in zip(outputs, self._prebatch_model.outputs):
+            if actual.shape.ndims is None:
+                actual.set_shape(expected.shape)
+        return outputs
 
     def postbatch_map(self, *args, **kwargs):
         inputs = tf.nest.flatten((args, kwargs))

@@ -119,8 +119,10 @@ def outer(node_features, edge_features):
                                     [node_features, edge_features])
 
 
-def get_row_offsets(tensor):
-    return maybe_ragged_lambda_call(_utils.get_row_offsets, tensor)
+def get_row_offsets(tensor, dtype=tf.int64):
+    return maybe_ragged_lambda_call(_utils.get_row_offsets,
+                                    tensor,
+                                    arguments=dict(dtype=dtype))
 
 
 def reduce_sum(tensor, axis=None, keepdims=False):
