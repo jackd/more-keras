@@ -40,7 +40,8 @@ class VariableMomentumBatchNormalization(tf.keras.layers.BatchNormalization):
 
     def build(self, input_shape):
         if not self.built:
-            self.initial_momentum = self.momentum
+            # momentum is assigned in base class initialization
+            self.initial_momentum = self.momentum  # pylint: disable=access-member-before-definition
             self.momentum = self.add_weight(
                 'momentum',
                 initializer=tf.keras.initializers.constant(self.momentum),
@@ -54,4 +55,27 @@ class VariableMomentumBatchNormalization(tf.keras.layers.BatchNormalization):
         if self.built:
             # actual momentum is a variable and should be saved in weights
             config['momentum'] = self.initial_momentum
+        return config
+
+
+@gin.configurable(module='mk.layers')
+class ConsistentBatchNormalization(tf.keras.layers.BatchNormalization):
+    """
+    Light BatchNormalization wrapper that always runs in the same mode.
+
+    Useful for use with `gin` to turn off one type of behaviour for debugging.
+    """
+
+    def __init__(self, training, *args, **kwargs):
+        """Specify 'training' as a kwarg."""
+        self.training = training
+        super(ConsistentBatchNormalization, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+        return super(ConsistentBatchNormalization,
+                     self).call(inputs, training=self.training)
+
+    def get_config(self):
+        config = super(ConsistentBatchNormalization, self).get_config()
+        config['training'] = self.training
         return config

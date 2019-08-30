@@ -44,8 +44,11 @@ def is_serializable(obj):
 
 
 def serialize(func):
+    if func is None:
+        return None
+
     if not callable(func):
-        raise ValueError('Cannot serialize non-callable')
+        raise ValueError('Cannot serialize non-callable {}'.format(func))
 
     if isinstance(func, functools.partial):
         keywords = func.func
@@ -58,6 +61,8 @@ def serialize(func):
             _update_without_overwrite(config['keywords'], keywords)
         else:
             config['keywords'] = keywords
+    else:
+        config = _serialize_func(func)
     return config
 
 

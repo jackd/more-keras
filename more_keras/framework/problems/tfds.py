@@ -16,13 +16,11 @@ class TfdsProblem(Problem):
                  loss,
                  metrics=(),
                  objective=None,
-                 input_spec=None,
                  output_spec=None,
-                 labels_spec=None,
-                 weights_spec=None,
                  as_supervised=True,
                  split_map=None,
-                 download_and_prepare=True):
+                 download_and_prepare=True,
+                 element_spec=None):
         if isinstance(builder, six.string_types):
             builder = tfds.builder(builder)
         if download_and_prepare:
@@ -30,12 +28,9 @@ class TfdsProblem(Problem):
         self.builder = builder
 
         self.as_supervised = as_supervised
-        if input_spec is None or output_spec is None and as_supervised:
+        if output_spec is None and as_supervised:
             info = self.builder.info
-            inp, out = (info.features[k] for k in info.supervised_keys)
-            if input_spec is None:
-                input_spec = tf.keras.layers.InputSpec(shape=inp.shape,
-                                                       dtype=inp.dtype)
+            _, out = (info.features[k] for k in info.supervised_keys)
             if output_spec is None:
                 if hasattr(out, 'num_classes'):
                     # classification
@@ -46,6 +41,8 @@ class TfdsProblem(Problem):
                     dtype = out.dtype
                 output_spec = tf.keras.layers.InputSpec(shape=shape,
                                                         dtype=dtype)
+        # TODO: optimization: get default value for element_spec based on info
+        # if not provided
         if split_map is None:
             split_map = {}
         self.split_map = split_map
@@ -53,10 +50,8 @@ class TfdsProblem(Problem):
             loss=loss,
             metrics=metrics,
             objective=objective,
-            input_spec=input_spec,
+            element_spec=element_spec,
             output_spec=output_spec,
-            labels_spec=labels_spec,
-            weights_spec=weights_spec,
         )
 
     def get_config(self):

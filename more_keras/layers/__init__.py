@@ -5,6 +5,7 @@ from __future__ import print_function
 import tensorflow as tf
 import gin
 from more_keras.layers.batch_norm import VariableMomentumBatchNormalization
+from more_keras.layers.batch_norm import ConsistentBatchNormalization
 from more_keras.layers import utils
 
 # Configurable versions of base layers to be used from code.

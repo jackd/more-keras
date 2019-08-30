@@ -1,12 +1,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from tensorflow.python.ops.ragged import ragged_util as _ragged_util  # pylint: disable=no-name-in-module
 import functools
 import numpy as np
 import tensorflow as tf
-
-repeat = _ragged_util.repeat
 
 
 def outer(node_features, edge_features):
@@ -91,8 +88,7 @@ def flatten_leading_dims(tensor, n=2):
     if isinstance(tensor, tf.RaggedTensor):
         return flatten_leading_dims(tensor.values, n=n - 1)
     else:
-        leading, trailing = tf.split(tf.shape(tensor),
-                                     [n, tensor.shape.ndims - n])
+        leading, trailing = tf.split(tf.shape(tensor), [n, -1])
         if tensor.shape[:n].is_fully_defined():
             initial = tensor.shape[:n].num_elements()
         else:
@@ -104,12 +100,22 @@ def flatten_leading_dims(tensor, n=2):
 
 def get_row_offsets(tensor, dtype=tf.int64):
     if isinstance(tensor, tf.RaggedTensor):
-        return tensor.row_starts()
+        return tf.cast(tensor.row_starts(), dtype=dtype)
     else:
         shape = tf.shape(tensor, out_type=dtype)
         batch_size = shape[0]
         stride = shape[1]
         return tf.range(batch_size) * stride
+
+
+def get_row_splits(tensor, dtype=tf.int64):
+    if isinstance(tensor, tf.RaggedTensor):
+        return tf.cast(tensor.row_splits, dtype=dtype)
+    else:
+        shape = tf.shape(tensor, out_type=dtype)
+        batch_size = shape[0]
+        stride = shape[1]
+        return tf.range(batch_size + 1) * stride
 
 
 def map_gather(params, indices):
@@ -147,3 +153,14 @@ def diff(tensor, n=1, axis=-1):
     for _ in range(n):
         tensor = _diff(tensor, axis=axis)
     return tensor
+
+
+def leading_dim(x, dtype=tf.int64):
+    if isinstance(x, tf.RaggedTensor):
+        return x.nrows(out_type=dtype)
+    else:
+        return tf.shape(x, out_type=dtype)[0]
+
+
+def num_elements(x, dtype=np.int64):
+    return tf.reduce_prod(tf.shape(x, out_type=dtype))

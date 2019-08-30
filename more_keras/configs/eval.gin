@@ -1,30 +1,34 @@
-# Evaluation template for basic supervised learning
+# Evaluation template
 
 # REQUIRES:
 # problem
-# validation/Pipeline spec (or validation_pipeline)
+# pipeline
 # model_fn
-# optimizer
+# optimizer_fn
 # model_dir
+# is_meta_model (defaults to False)
 
 import more_keras.cli
-import more_keras.framework.train
+import more_keras.framework.trainers
 import more_keras.framework.pipelines
 import more_keras.utils
 
 mk.main.fn = @mk.framework.evaluate
 
-mk.framework.evaluate.problem = %problem
-mk.framework.evaluate.validation_pipeline = %validation_pipeline
-mk.framework.evaluate.model_fn = %model_fn
-mk.framework.evaluate.optimizer = %optimizer
-mk.framework.evaluate.chkpt_dir = %model_dir
+mk.framework.Trainer.problem = %problem
+mk.framework.Trainer.pipeline = %pipeline
+mk.framework.Trainer.model_fn = %model_fn
+mk.framework.Trainer.optimizer_fn = %optimizer_fn
+mk.framework.get_configured_trainer.is_meta_model = %is_meta_model
+trainer = @mk.framework.get_configured_trainer()
+is_meta_model = False
+
+mk.framework.evaluate.trainer = %trainer
+mk.framework.evaluate.model_dir = %model_dir
 
 mk.logging_config.to_file = True
 mk.logging_config.log_dir = %model_dir
 mk.logging_config.program_name = %proc_name
 mk.utils.proc.title = %proc_name
 
-proc_name = 'mk-val'
-
-validation_pipeline = @validation/Pipeline()
+proc_name = 'mk-eval'

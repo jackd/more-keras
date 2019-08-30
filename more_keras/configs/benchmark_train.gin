@@ -6,36 +6,32 @@
 # pipeline
 # model_fn
 # optimizer_fn
-# epochs
-# model_dir
-# is_meta_model (defaults to False)
+# is_meta_model (default: False)
+# split (default: 'train')
 
 import more_keras.cli
 import more_keras.framework.trainers
 import more_keras.framework.pipelines
 import more_keras.utils
+import more_keras.framework.benchmark
 
-mk.main.fn = @mk.framework.train
+mk.main.fn = @mk.framework.benchmark
+
+mk.framework.benchmark.op_fn = @mk.framework.train_benchmark
+mk.framework.train_benchmark.trainer = %trainer
 
 mk.framework.Trainer.problem = %problem
 mk.framework.Trainer.pipeline = %pipeline
 mk.framework.Trainer.model_fn = %model_fn
 mk.framework.Trainer.optimizer_fn = %optimizer_fn
 
-mk.framework.train.trainer = %trainer
-mk.framework.train.epochs = %epochs
-mk.framework.train.model_dir = %model_dir
-mk.framework.train.fresh = %fresh
-
-mk.logging_config.to_file = True
-mk.logging_config.log_dir = %model_dir
-mk.logging_config.program_name = %proc_name
 mk.utils.proc.title = %proc_name
 
 mk.framework.get_configured_trainer.is_meta_model = %is_meta_model
 
 trainer = @mk.framework.get_configured_trainer()
-proc_name = 'mk-train'
-is_meta_model = False
+mk.utils.proc.title = %proc_name
 
-fresh = False
+is_meta_model = False
+proc_name = 'mk-benchmark-train'
+split = 'train'

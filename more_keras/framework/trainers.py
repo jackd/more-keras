@@ -10,34 +10,6 @@ from more_keras.framework import problems as prob
 from more_keras import callbacks as cb
 
 
-def _dataset_and_model_simple(problem, pipeline, model_fn, split):
-    """
-    Get dataset(s) and model for basic supervised training.
-
-    Args:
-        problem: `Problem` instance.
-        pipeline: `Pipeline` instance of list/tuple of instances. Structure
-            should match that of `split`.
-        model_fn: function taking (input_spec, output_spec) and returning
-            a keras model.
-        split: string ("train", "validation", "test") or list/tuple of strings.
-            Structure should match that of `pipeline`.
-
-    Returns:
-        dataset: preprocessed dataset, or list/tuple of datasets with structure
-            matching that of split / pipeline.
-        model: keras model.
-    """
-    dataset = problem.get_base_dataset(split)
-    dataset = tf.nest.map_structure(lambda ds, pipeline: pipeline(ds), dataset,
-                                    pipeline)
-
-    first_pipeline = tf.nest.flatten(pipeline)[0]
-    model = model_fn(first_pipeline.output_spec(problem.input_spec),
-                     problem.output_spec)
-    return dataset, model
-
-
 @gin.configurable(module='mk.framework')
 class Trainer(object):
 
@@ -151,9 +123,14 @@ class Trainer(object):
     def get_dataset(self, split):
         return self.get_pipeline(split)(self.problem.get_base_dataset(split))
 
+    def get_flat_dataset(self, split):
+        return self.get_dataset(split).map(
+            lambda inputs, labels: (tuple(tf.nest.flatten(inputs)), labels))
+
     @property
     def model_input_spec(self):
-        return self.get_pipeline('train').output_spec(self.problem.input_spec)
+        return self.get_pipeline('train').element_spec(
+            self.problem.element_spec)[0]
 
     @property
     def output_spec(self):
@@ -216,12 +193,15 @@ class Trainer(object):
             gin.operative_config_str()))
         self.model.summary(print_fn=logging.info)
 
+        train_ds, val_ds = tf.nest.map_structure(self.get_flat_dataset,
+                                                 ('train', 'validation'))
+
         history = self.model.fit(
-            self.get_dataset('train'),
+            train_ds,
             epochs=epochs,
             verbose=verbose,
             callbacks=callbacks,
-            validation_data=self.get_dataset('validation'),
+            validation_data=val_ds,
             steps_per_epoch=train_steps,
             validation_steps=validation_steps,
             initial_epoch=initial_epoch,
@@ -240,10 +220,38 @@ class Trainer(object):
             callbacks.append(self._saver_callback(model_dir))
         if extra_callbacks is not None:
             callbacks.extend(extra_callbacks)
-        return self.model.evaluate(self.get_dataset('validation'),
+
+        return self.model.evaluate(self.get_flat_dataset('validation'),
                                    steps=steps,
                                    callbacks=callbacks,
                                    verbose=verbose)
+
+    def train_op(self, split='train'):
+        dataset = self.get_dataset(split)
+        inputs = tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()
+        if len(inputs) == 2:
+            features, labels = inputs
+            weights = None
+        else:
+            features, labels, weights = inputs
+
+        model = self.model
+        # with tf.GradientTape() as tape:
+        #     tape.watch(model.variables)
+        outputs = model(features)
+        if isinstance(outputs, (list, dict)):
+            losses = [
+                loss(label, output, sample_weight=weights)
+                for loss, label, output in zip(model.loss, labels, outputs)
+            ]
+        else:
+            losses = [model.loss(labels, outputs, sample_weight=weights)]
+        losses.extend(model.losses)
+        loss = tf.add_n(losses)
+        # grads = tape.gradient(loss, model.variables)
+        grads = tf.gradients(loss, model.variables)
+        train_op = model.optimizer.apply_gradients(zip(grads, model.variables))
+        return train_op
 
 
 @gin.configurable(module='mk.framework')
@@ -261,8 +269,13 @@ class MetaTrainer(Trainer):
             self.compile_model()
 
             # build preprocessor
-            labels_spec = self.problem.labels_spec
-            weights_spec = self.problem.weights_spec
+            spec = self.problem.element_spec
+            if len(spec) == 2:
+                labels_spec = spec[1]
+                weights_spec = None
+            else:
+                labels_spec, weights_spec = spec[1:]
+
             labels, weights = tf.nest.map_structure(
                 lambda spec: None if spec is None else builder.batched(
                     builder.prebatch_input(shape=spec.shape, dtype=spec.dtype)),
@@ -287,6 +300,11 @@ class MetaTrainer(Trainer):
             dataset = dataset.prefetch(pipeline.prefetch_buffer)
 
         return dataset
+
+
+@gin.configurable(module='mk.framework')
+def get_configured_trainer(is_meta_model=False):
+    return (MetaTrainer if is_meta_model else Trainer)()
 
 
 @gin.configurable(module='mk.framework')
@@ -325,3 +343,8 @@ def evaluate(
         verbose=verbose,
         extra_callbacks=extra_callbacks,
     )
+
+
+@gin.configurable(module='mk.framework')
+def train_benchmark(trainer):
+    return trainer.train_op()

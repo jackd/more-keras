@@ -4,10 +4,12 @@ from __future__ import print_function
 
 import abc
 import collections
+import copy
 import gin
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import six
+from more_keras import spec
 
 
 @gin.configurable(module='mk.framework')
@@ -42,19 +44,41 @@ class Problem(object):
                  loss,
                  metrics=(),
                  objective=None,
-                 input_spec=None,
-                 output_spec=None,
-                 labels_spec=None,
-                 weights_spec=None):
-        self.loss = tf.keras.losses.get(loss)
-        self.metrics = [tf.keras.metrics.get(m) for m in metrics]
-        if objective is None and len(self.metrics) > 0:
-            objective = 'val_{}'.format(self.metrics[0].name)
+                 element_spec=None,
+                 output_spec=None):
+        if isinstance(loss, (list, tuple)):
+            self.loss = [tf.keras.losses.get(l) for l in loss]
+        else:
+            self.loss = tf.keras.losses.get(loss)
+        if metrics is None or len(metrics) == 0:
+            self.metrics = []
+        elif isinstance(metrics[0], (list, tuple)):
+            self.metrics = [
+                [tf.keras.metrics.get(mi) for mi in m] for m in metrics
+            ]
+            if objective is None:
+                objective = 'val_{}'.format(self.metrics[0][0].name)
+        else:
+            self.metrics = [tf.keras.metrics.get(m) for m in metrics]
+            if objective is None:
+                objective = 'val_{}'.format(self.metrics[0].name)
         self.objective = Objective.get(objective)
-        self.input_spec = get_input_spec(input_spec)
-        self.output_spec = get_input_spec(output_spec)
-        self.labels_spec = get_input_spec(labels_spec)
-        self.weights_spec = get_input_spec(weights_spec)
+        self._element_spec = element_spec
+        self._output_spec = output_spec
+
+    @property
+    def element_spec(self):
+        if self._element_spec is None:
+            with tf.Graph().as_default():
+                self._element_spec = spec.element_spec(
+                    self.get_base_dataset('train'))
+        return copy.deepcopy(self._element_spec)
+
+    @property
+    def output_spec(self):
+        if self._output_spec is None:
+            self._output_spec = self.element_spec[1]  # default: same as labels
+        return self._output_spec
 
     def batch_labels_and_weights(self, labels, weights=None):
         from more_keras.meta_models import builder as b
@@ -83,30 +107,4 @@ class Problem(object):
             metrics=[
                 tf.keras.utils.serialize_keras_object(m) for m in self.metrics
             ],
-            objective=None if objective is None else objective.get_config(),
-            input_spec=get_input_spec_config(self.input_spec),
-            output_spec=get_input_spec_config(self.output_spec))
-
-
-def get_input_spec_config(input_spec):
-    if input_spec is None:
-        return None
-    return dict(dtype=repr(input_spec.dtype)[3:],
-                shape=input_spec.shape,
-                ndim=input_spec.ndim,
-                max_ndim=input_spec.max_ndim,
-                min_ndim=input_spec.min_ndim,
-                axes=input_spec.axes)
-
-
-def get_input_spec(identifier):
-    if identifier is None or isinstance(identifier, tf.keras.layers.InputSpec):
-        return identifier
-    elif isinstance(identifier, dict):
-        if identifier.get('class_name') == 'InputSpec':
-            return tf.keras.layers.InputSpec(**identifier['config'])
-        else:
-            return {k: get_input_spec(v) for k, v in identifier.items()}
-    else:
-        raise TypeError(
-            'Cannot convert value {} to InputSpec'.format(identifier))
+            objective=None if objective is None else objective.get_config())

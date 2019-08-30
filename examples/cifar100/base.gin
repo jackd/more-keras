@@ -8,7 +8,6 @@ problem = @get_problem()
 
 Pipeline.batch_size = 32
 Pipeline.repeats = None
-Pipeline.output_spec_fn = @as_float
 
 pipeline = {
     'train': @train/Pipeline(),

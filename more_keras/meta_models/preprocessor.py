@@ -10,7 +10,6 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from more_keras.tf_compat import dim_value
 
 
 def default_padding_value(dtype):
@@ -19,7 +18,7 @@ def default_padding_value(dtype):
 
 def needs_padding(dataset):
     return any(
-        len(shape) > 0 and dim_value(shape[0]) is None
+        len(shape) > 0 and shape[0] is None
         for shape in tf.nest.flatten(dataset.output_shapes))
 
 
@@ -134,6 +133,7 @@ class Preprocessor(object):
                       batch_kwargs=None):
         dataset = dataset.map(self.prebatch_map,
                               num_parallel_calls=num_parallel_calls)
+        # dataset = dataset.batch(batch_size)
         dataset = self.batch(dataset, batch_size)
         dataset = dataset.map(self.postbatch_map,
                               num_parallel_calls=num_parallel_calls)

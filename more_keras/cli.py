@@ -24,7 +24,7 @@ flags.DEFINE_boolean('expand_vars',
 
 @gin.configurable(module='mk')
 def logging_config(to_file=True, log_dir=None, program_name='more_keras'):
-    if to_file:
+    if to_file and log_dir is not None:
         log_dir = os.path.expanduser(os.path.expandvars(log_dir))
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)

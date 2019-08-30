@@ -94,17 +94,6 @@ model and `batched_x` as an input to the postbatch map model, while
 `model_z = b.as_model_input(batched_y)` will mark `model_x` as a learned model
 input and `batched_y` as an output of the postbatch map model.
 
-In addition to this, tensors with dynamic leading dimension are automatically
-converted to `tf.RaggedTensor`s. Under-the-hood, this ragged batching is done
-in a 3-stage process:
-1. during `batched`, the leading dimension is checked and the size is stored
-    if it is dynamic
-2. during `Preprocessor.batch`, `tf.data.Dataset.padded_batch` is used if
-    any dynamic leading dimensions were detected.
-3. during `Preprocessor.postbatch_map`, the padded values are stripped
-    efficiently using the size stored in step 1 and the ragged tensor is
-    constructed.
-
 If you wish to build multiple meta-networks separately, you can create
 `MetaNetworkBuilder`s and use context blocks.
 
@@ -135,10 +124,10 @@ from __future__ import print_function
 import tensorflow as tf
 
 from more_keras.layers import utils as layer_utils
-from more_keras.ragged import layers as ragged_layers
-from more_keras.tf_compat import dim_value
 from more_keras.meta_models import utils as meta_utils
 from more_keras.meta_models.preprocessor import Preprocessor
+from more_keras.ragged import layers as ragged_layers
+# from tensorflow.python.framework import composite_tensor as _comp
 
 
 class Marks(object):
@@ -236,6 +225,18 @@ class MetaNetworkBuilder(object):
             if recursive:
                 for dep in tensor.op.inputs:
                     self._mark(dep, mark)
+                # if isinstance(tensor, tf.Tensor):
+                #     deps = tensor.op.inputs
+                # elif isinstance(tensor, tf.RaggedTensor):
+                #     deps = (tensor.flat_values, *tensor.nested_row_splits)
+                # # elif isinstance(tensor, _comp.CompositeTensor):
+                # # deps = _comp.replace_composites_with_components(tensor)
+                # else:
+                #     raise TypeError(
+                #         'Expected Tensor or CompositeTensor, got {} of type {}'.
+                #         format(tensor, type(tensor)))
+                # for dep in deps:
+                #     self._mark(dep, mark)
         elif existing != mark:
             raise ValueError(
                 'attempted to mark tensor %s as %s, but it is already marked '
@@ -291,13 +292,13 @@ class MetaNetworkBuilder(object):
 
     def _batched_tensor(self, tensor):
         shape = tensor.shape
-        if len(shape) > 0 and dim_value(shape[0]) is None:
+        if len(shape) > 0 and shape[0] is None:
             return self._batched_tensor_with_ragged_leading_dim(tensor)
 
         return self._batched_fixed_tensor(tensor)
 
     def _batched_tensor_with_ragged_leading_dim(self, tensor):
-        assert (dim_value(tensor.shape[0]) is None)
+        assert (tensor.shape[0] is None)
         if tensor in self._batched_inputs_dict:
             return self._batched_inputs_dict[tensor]
         size = tf.keras.layers.Lambda(
@@ -352,16 +353,8 @@ class MetaNetworkBuilder(object):
         print(batched_y.shape)  # (None, 3)
         ```
 
-        Also automatically handles ragged batching
-        ```python
-        coords = b.prebatch_inputs(shape=(None, 3), dtype=tf.float32)
-        batched_coords = b.batched(x)
-        print(batched_coords)
-        # tf.RaggedTensor(values=Tensor(shape=(3,)...), row_splits=...)
-        ```
-
         Args:
-            tensor: tensor structure
+            tensor: structure of possibly ragged tensors.
 
         Returns:
             batched tensor for each element of tensor.
@@ -380,16 +373,79 @@ class MetaNetworkBuilder(object):
         self._model_inputs_dict[tensor] = inp
         return inp
 
-    def as_model_input(self, tensor):
+    def _as_model_input_single(self, tensor):
         """Marks the tensor as the input of the learned model."""
         if isinstance(tensor, tf.Tensor):
             return self._as_model_input(tensor)
         elif isinstance(tensor, tf.RaggedTensor):
-            values = self.as_model_input(tensor.values)
-            row_splits = self._as_model_input(tensor.row_splits)
-            return tf.RaggedTensor.from_row_splits(values, row_splits)
+            values = self._as_model_input_single(tensor.flat_values)
+            nested_row_splits = [
+                self._as_model_input_single(rs)
+                for rs in tensor.nested_row_splits
+            ]
+            return tf.RaggedTensor.from_nested_row_splits(
+                values, nested_row_splits)
         else:
             raise ValueError('Unrecognized type "%s"' % tensor)
+
+    def as_model_input(self, tensor):
+        return tf.nest.map_structure(self._as_model_input_single, tensor)
+
+    # def _batch_ragged(self, rt):
+    #     assert (isinstance(rt, tf.RaggedTensor))
+    #     shape = rt.shape
+    #     inp_shape = list(shape)
+    #     for i in range(rt.ragged_rank):
+    #         inp_shape[i] = None
+    #     out = tf.keras.layers.Input(shape=inp_shape,
+    #                                 dtype=rt.dtype,
+    #                                 ragged=True)
+    #     return out
+
+    # def _batched(self, tensor):
+    #     if tensor in self._batched_inputs_dict:
+    #         return self._batched_inputs_dict[tensor]
+    #     assert isinstance(tensor, (tf.Tensor, tf.RaggedTensor, tf.SparseTensor))
+    #     self._mark(tensor, Marks.PREBATCH)
+    #     self._prebatch_outputs.append(tensor)
+    #     if isinstance(tensor, tf.RaggedTensor):
+    #         batched = self._batch_ragged(tensor)
+    #     elif isinstance(tensor, tf.SparseTensor):
+    #         raise NotImplementedError
+    #     elif isinstance(tensor, tf.Tensor):
+    #         batched = tf.keras.layers.Input(shape=tensor.shape,
+    #                                         dtype=tensor.dtype)
+    #     else:
+    #         raise TypeError(
+    #             'Only `Tensor`s and `RaggedTensor`s currently supported, got {}'
+    #             .format(tensor))
+
+    #     self._batched_inputs.append(batched)
+    #     self._mark(batched, Marks.BATCHED)
+    #     self._batched_inputs_dict[tensor] = batched
+    #     return batched
+
+    # def _as_model_input(self, tensor):
+    #     assert (isinstance(tensor,
+    #                        (tf.Tensor, tf.RaggedTensor, tf.SparseTensor)))
+    #     if tensor.shape.ndims == 0:
+    #         raise ValueError('Cannot add tensor with rank 0 as model input')
+    #     if tensor in self._model_inputs_dict:
+    #         return self._model_inputs_dict[tensor]
+    #     self._mark(tensor, Marks.BATCHED)
+    #     self._batched_feature_outputs.append(tensor)
+    #     inp = tf.keras.layers.Input(shape=tensor.shape[1:],
+    #                                 dtype=tensor.dtype,
+    #                                 ragged=isinstance(tensor, tf.RaggedTensor),
+    #                                 sparse=isinstance(tensor, tf.SparseTensor))
+    #     self._model_inputs.append(inp)
+    #     self._mark(inp, Marks.MODEL)
+    #     self._model_inputs_dict[tensor] = inp
+    #     return inp
+
+    # def as_model_input(self, tensor):
+    #     """Marks the tensor as the input of the learned model."""
+    #     return tf.nest.map_structure(self._as_model_input, tensor)
 
     def as_batched_model_input(self, tensor):
         """Wrapper around `self.batched` -> `self.as_model_input`."""

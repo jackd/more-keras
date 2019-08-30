@@ -13,6 +13,7 @@ import more_keras.schedules as sched
 
 from more_keras.framework.problems.tfds import TfdsProblem
 from more_keras.framework.pipelines import Pipeline
+from more_keras import spec
 
 
 @gin.configurable
@@ -39,8 +40,7 @@ def get_model(input_spec,
               conv_filters=(16, 32),
               dense_units=(),
               activation='relu'):
-    inputs = tf.keras.layers.Input(shape=input_spec.shape,
-                                   dtype=input_spec.dtype)
+    inputs = spec.inputs(input_spec)
     x = inputs
     for f in conv_filters:
         x = tf.keras.layers.Conv2D(f, 3)(x)
@@ -83,8 +83,3 @@ def get_problem():
             # tf.keras.metrics.SparseCategoricalCrossentropy(from_logits=True)
         ],
         split_map={'validation': 'test'})
-
-
-@gin.configurable
-def as_float(spec):
-    return tf.keras.layers.InputSpec(shape=spec.shape, dtype=tf.float32)

@@ -9,6 +9,8 @@ except ImportError:
         'No tensorflow installation found. `more_keras` does not '
         'automatically install tensorflow. Please install manaully.')
 import distutils.version
+tf.compat.v1.enable_v2_tensorshape()
+
 tf_version = distutils.version.LooseVersion(tf.__version__)
 is_v1 = tf_version.version[0] == 1
 is_v2 = tf_version.version[0] == 2
@@ -17,15 +19,5 @@ if not (is_v1 or is_v2):
     raise ImportError(
         'Detected version of tensorflow %s not compatible with more_keras - '
         'only versions 1 and 2 supported' % (tf.__version__))
-
-if is_v1:
-
-    def dim_value(dimension):
-        return dimension.value
-else:
-
-    def dim_value(dimension):
-        return dimension
-
 
 is_v1_13 = is_v1 and tf_version.version[1] == 13

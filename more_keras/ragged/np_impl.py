@@ -187,11 +187,17 @@ class RaggedArray(object):
             row_lengths=self.row_lengths[start:stop])
 
     def __getitem__(self, indices):
-        if (isinstance(indices, int) or
-                isinstance(indices, np.ndarray) and len(indices.shape) == 0 and
-                np.issubdtype(indices.dtype, np.integer)):
+        try:
+            indices = indices.item()
+        except (AttributeError, ValueError):
+            pass
+        if (isinstance(indices, int)):
             row_splits = self.row_splits
             i = indices
+            if i >= len(self):
+                raise IndexError(
+                    'index {} is out of bounds for axis 0 with size {}'.format(
+                        i, len(self)))
             return self.values[row_splits[i]:row_splits[i + 1]]
         elif isinstance(indices, np.ndarray):
             if indices.dtype == np.bool:

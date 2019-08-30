@@ -8,7 +8,7 @@ from __future__ import division
 from __future__ import print_function
 
 import functools
-from tensorflow.python.util import tf_inspect  # pylint: disable=no-name-in-module
+from tensorflow.python.util import tf_inspect  # pylint: disable=import-error
 import tensorflow as tf
 from more_keras.ragged.layers import maybe_ragged_lambda_call
 from more_keras.ragged.layers import ragged_lambda
@@ -94,6 +94,8 @@ squeeze = lambda_wrapper(tf.squeeze)
 size = lambda_wrapper(tf.size)
 divide = lambda_wrapper(tf.math.divide)
 reciprocal = lambda_wrapper(tf.math.reciprocal)
+num_elements = lambda_wrapper(_utils.num_elements)
+expand_dims = lambda_wrapper(tf.expand_dims)
 
 
 def flatten_final_dims(tensor, n=2):
@@ -112,6 +114,9 @@ def reshape_final_dim(tensor, final_dims):
     return maybe_ragged_lambda_call(_utils.reshape_final_dim,
                                     tensor,
                                     arguments=dict(final_dims=final_dims))
+
+
+reshape_leading_dim = lambda_wrapper(_utils.reshape_leading_dim)
 
 
 def outer(node_features, edge_features):
@@ -170,20 +175,18 @@ def apply_row_offset(indices, offset):
     return maybe_ragged_lambda_call(_apply_row_offset, [indices, offset])
 
 
-def _leading_dim(x, dtype=tf.int64):
-    return tf.shape(x, out_type=dtype)[0]
-
-
-leading_dim = lambda_wrapper(_leading_dim)
+leading_dim = lambda_wrapper(_utils.leading_dim)
 
 
 def _repeat(args, axis, name=None):
     data, repeats = args
-    return _utils.repeat(data, repeats, axis, name=name)
+    return tf.repeat(data, repeats, axis, name=name)
 
 
 def repeat(data, repeats, axis, name=None):
-    return tf.keras.layers.Lambda(_repeat, arguments=dict(axis=axis, name=name))
+    return tf.keras.layers.Lambda(_repeat,
+                                  arguments=dict(axis=axis,
+                                                 name=name))([data, repeats])
 
 
 def concat(values, axis, name='concat'):
