@@ -108,3 +108,9 @@ class Problem(object):
                 tf.keras.utils.serialize_keras_object(m) for m in self.metrics
             ],
             objective=None if objective is None else objective.get_config())
+
+    # def post_batch_map(self, labels, weights=None):
+    #     if weights is None:
+    #         return labels
+    #     else:
+    #         return labels, weights

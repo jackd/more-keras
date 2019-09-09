@@ -164,3 +164,12 @@ def leading_dim(x, dtype=tf.int64):
 
 def num_elements(x, dtype=np.int64):
     return tf.reduce_prod(tf.shape(x, out_type=dtype))
+
+
+def repeat(values, repeats, axis):
+    """See https://github.com/tensorflow/tensorflow/issues/8246."""
+    if values.shape.ndims == 1:
+        return tf.repeat(values, repeats, axis=axis)
+    else:
+        indices = tf.repeat(tf.range(tf.shape(values)[axis]), repeats)
+        return tf.gather(values, indices, axis=axis)

@@ -44,7 +44,7 @@ class RaggedArray(object):
                                            ragged_tensor_value.row_splits)
 
     @staticmethod
-    def from_ragged_lists(ragged_lists, dtype=np.float32):
+    def from_ragged_lists(ragged_lists, dtype=None):
         row_lengths = np.array(tuple(len(r) for r in ragged_lists),
                                dtype=np.int64)
         size = np.sum(row_lengths)
@@ -65,6 +65,14 @@ class RaggedArray(object):
                            row_lengths=row_lengths,
                            leading_dim=row_lengths.size,
                            internal=True)
+
+    @staticmethod
+    def from_mask(values, mask):
+        values = np.asanyarray(values)
+        mask = np.asanyarray(mask)
+        values = values[mask]
+        row_lengths = np.count_nonzero(mask, axis=1)
+        return RaggedArray.from_row_lengths(values, row_lengths)
 
     @staticmethod
     def from_nested_row_splits(values, nested_row_splits):
@@ -92,6 +100,20 @@ class RaggedArray(object):
                            row_splits=row_splits,
                            leading_dim=row_splits.size - 1,
                            internal=True)
+
+    @staticmethod
+    def from_padded_array(padded, lengths):
+        padded = np.asanyarray(padded)
+        lengths = np.asanyarray(lengths, dtype=np.int64)
+        actual_length = padded.shape[1]
+        true_counts = np.minimum(actual_length, lengths)
+        truncated = np.maximum(actual_length - lengths, 0)
+        values = np.array([[True, False]], dtype=np.bool)
+        repeats = np.stack((true_counts, truncated), axis=1)
+        mask = np.repeat(
+            np.tile(values, (len(lengths), 1)).flatten(), repeats.flatten())
+        flat_values = padded.flatten()[mask]
+        return RaggedArray.from_row_lengths(flat_values, true_counts)
 
     @property
     def ragged_lists(self):

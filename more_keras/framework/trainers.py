@@ -124,8 +124,13 @@ class Trainer(object):
         return self.get_pipeline(split)(self.problem.get_base_dataset(split))
 
     def get_flat_dataset(self, split):
-        return self.get_dataset(split).map(
-            lambda inputs, labels: (tuple(tf.nest.flatten(inputs)), labels))
+
+        def fn(inputs, labels, weights=None):
+            inputs = tuple(tf.nest.flatten(inputs))
+            return (inputs, labels) if weights is None else (inputs, labels,
+                                                             weights)
+
+        return self.get_dataset(split).map(fn)
 
     @property
     def model_input_spec(self):
@@ -195,6 +200,9 @@ class Trainer(object):
 
         train_ds, val_ds = tf.nest.map_structure(self.get_flat_dataset,
                                                  ('train', 'validation'))
+
+        if hasattr(self._tensorboard, '_profile_batch'):
+            self._tensorboard._profile_batch = max(int(train_steps * 0.9), 2)
 
         history = self.model.fit(
             train_ds,

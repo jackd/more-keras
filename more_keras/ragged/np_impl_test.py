@@ -11,6 +11,12 @@ import numpy as np
 from more_keras.ragged.np_impl import RaggedArray
 
 ragged_lists = [[0, 1, 2, 3], [4, 5, 6], [7]]
+rect_values = [[0, 1, 2, 3], [4, 5, 6, 0], [7, 0, 0, 0]]
+rect_mask = [
+    [True, True, True, True],
+    [True, True, True, False],
+    [True, False, False, False],
+]
 flat_values = [0, 1, 2, 3, 4, 5, 6, 7]
 row_lengths = [4, 3, 1]
 row_splits = [0, 4, 7, 8]
@@ -44,6 +50,12 @@ class RaggedArrayTest(unittest.TestCase):
 
     def test_from_ragged_lists(self):
         self._test(RaggedArray.from_ragged_lists(ragged_lists))
+
+    def test_from_padded_array(self):
+        self._test(RaggedArray.from_padded_array(rect_values, row_lengths))
+
+    def test_from_mask(self):
+        self._test(RaggedArray.from_mask(rect_values, rect_mask))
 
     def test_indexing(self):
         ra = RaggedArray.from_row_splits(flat_values, row_splits)
