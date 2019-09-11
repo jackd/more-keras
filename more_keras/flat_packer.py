@@ -2,12 +2,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import tensorflow as tf
+from more_keras import spec
 
 
 def assert_compatible(spec, value):
     if not spec.is_compatible_with(value):
         raise ValueError('spec {} not compatible with value {}'.format(
             spec, value))
+
+
+def ragged_tensor_value(components):
+    if len(components) == 2:
+        return tf.ragged.RaggedTensorValue(*components)
+    else:
+        return tf.ragged.RaggedTensorValue(
+            ragged_tensor_value([components[0], *components[2:]]),
+            components[1])
 
 
 class FlatPacker(object):
@@ -45,10 +55,10 @@ class FlatPacker(object):
         sizes = tf.cast(sizes, dtype=tf.int64)
         flat_components = tf.split(rest, sizes, axis=0)
         flat_components = tf.nest.map_structure(
-            lambda x, spec: tf.cast(
+            lambda x, sp: tf.cast(
                 tf.reshape(x, [-1 if d is None else d
-                               for d in spec.shape]), spec.dtype),
-            flat_components, self._flat_components)
+                               for d in sp.shape]), sp.dtype), flat_components,
+            self._flat_components)
         components = tf.nest.pack_sequence_as(self._components, flat_components)
         components = [
             spec._from_components(t)
@@ -56,3 +66,24 @@ class FlatPacker(object):
         ]
         components = tf.nest.pack_sequence_as(self._elements, components)
         return components
+
+    def unpack_numpy(self, flat_values):
+        import numpy as np
+        if not all(
+                isinstance(spec, (tf.RaggedTensorSpec, tf.TensorSpec))
+                for spec in self._flat_elements):
+            raise NotImplementedError()
+        sizes, rest = np.split(flat_values, [self._num_flat, -1], axis=0)  # pylint: disable=unbalanced-tuple-unpacking
+        indices = np.cumsum(sizes)
+        flat_components = np.split(rest, indices)
+        flat_components = tf.nest.map_structure(
+            lambda x, sp: np.reshape(
+                x, [-1 if d is None else d for d in sp.shape]).astype(sp.dtype),
+            flat_components, self._flat_components)
+        components = tf.nest.pack_sequence_as(self._components, flat_components)
+        components = [
+            ragged_tensor_value(c)
+            if isinstance(spec, tf.RaggedTensorSpec) else c
+            for spec, c in zip(self._flat_elements, components)
+        ]
+        return tf.nest.pack_sequenc_as(self._elements, components)

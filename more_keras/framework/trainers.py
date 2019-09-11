@@ -23,6 +23,7 @@ class Trainer(object):
             model_fn: function mapping (input_spec, output_spec) -> model.
             optimizer_fn: function mapping () -> optimizer.
         """
+        tf.keras.metrics.Metric
         self._problem = problem
         if isinstance(pipeline, pl.Pipeline):
             pipelines = {
@@ -81,12 +82,14 @@ class Trainer(object):
         self.compile_model()
 
     def rebuild_model(self):
-        with cb.aggregator.Aggregator() as callback_agg:
-            with cb.cache.Cache() as cache:
-                with self._tensorboard:
-                    self._rebuild_model(self.model_input_spec, self.output_spec)
-                if len(cache) > 0:
-                    callback_agg.append(cache)
+        with self.problem:
+            with cb.aggregator.Aggregator() as callback_agg:
+                with cb.cache.Cache() as cache:
+                    with self._tensorboard:
+                        self._rebuild_model(self.model_input_spec,
+                                            self.output_spec)
+                    if len(cache) > 0:
+                        callback_agg.append(cache)
         self._callbacks = callback_agg.callbacks
 
     def rebuild_optimizer(self):
@@ -121,7 +124,9 @@ class Trainer(object):
             split).batch_size
 
     def get_dataset(self, split):
-        return self.get_pipeline(split)(self.problem.get_base_dataset(split))
+        with self.problem:
+            return self.get_pipeline(split)(
+                self.problem.get_base_dataset(split))
 
     def get_flat_dataset(self, split):
 

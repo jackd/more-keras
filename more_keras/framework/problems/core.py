@@ -39,6 +39,7 @@ class Objective(object):
 
 
 class Problem(object):
+    _stack = []
 
     def __init__(self,
                  loss,
@@ -65,6 +66,24 @@ class Problem(object):
         self.objective = Objective.get(objective)
         self._element_spec = element_spec
         self._output_spec = output_spec
+
+    @staticmethod
+    def current():
+        if len(Problem._stack) == 0:
+            raise RuntimeError('Problem stack is empty')
+        return Problem._stack[-1]
+
+    @staticmethod
+    def has_current():
+        return len(Problem._stack) > 0
+
+    def __enter__(self):
+        Problem._stack.append(self)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        top = Problem._stack.pop()
+        assert (top is self)
 
     @property
     def element_spec(self):
@@ -109,8 +128,13 @@ class Problem(object):
             ],
             objective=None if objective is None else objective.get_config())
 
-    # def post_batch_map(self, labels, weights=None):
-    #     if weights is None:
-    #         return labels
-    #     else:
-    #         return labels, weights
+    def post_batch_map(self, labels, weights=None):
+        return labels, weights
+
+
+def get_current_problem():
+    return Problem.current()
+
+
+def has_current_problem():
+    return Problem.has_current()

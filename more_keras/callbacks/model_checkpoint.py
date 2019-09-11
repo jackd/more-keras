@@ -90,10 +90,10 @@ class BetterModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
     def restore_optimizer(self, checkpoint=LATEST):
         """Restore weights to optimizer."""
-        # pylint: disable=no-name-in-module
+        # pylint: disable=import-error
         from tensorflow.python.keras.saving.hdf5_format import \
             load_optimizer_weights_from_hdf5_group
-        # pylint: enable=no-name-in-module
+        # pylint: enable=import-error
         import h5py
         checkpoint = self.checkpoint(checkpoint)
         if checkpoint is None:
