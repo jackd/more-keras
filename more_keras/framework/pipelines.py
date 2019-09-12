@@ -167,5 +167,6 @@ def map_pipeline(pipeline, map_fn, post_batch_map_fn=None):
 def pipeline_benchmark(problem, split, pipeline):
     if isinstance(pipeline, dict):
         pipeline = pipeline[split]
-    dataset = pipeline.preprocess_dataset(problem.get_base_dataset(split))
-    return tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()
+    with problem:
+        dataset = pipeline.preprocess_dataset(problem.get_base_dataset(split))
+        return tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()

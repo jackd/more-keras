@@ -19,5 +19,5 @@ setup(name='more-keras',
       requirements=install_requires,
       zip_safe=True,
       package_data={
-          'more_keras': 'configs/*',
+          'more_keras': ['configs/*'],
       })

@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import gin
 import tensorflow as tf
-from tensorflow.python.keras.metrics import squeeze_or_expand_dimensions  # pylint: disable=no-name-in-module
+from tensorflow.python.keras.metrics import squeeze_or_expand_dimensions  # pylint: disable=import-error
 
 
 @gin.configurable(module='mk.metrics')

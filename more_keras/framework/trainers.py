@@ -206,9 +206,6 @@ class Trainer(object):
         train_ds, val_ds = tf.nest.map_structure(self.get_flat_dataset,
                                                  ('train', 'validation'))
 
-        if hasattr(self._tensorboard, '_profile_batch'):
-            self._tensorboard._profile_batch = max(int(train_steps * 0.9), 2)
-
         history = self.model.fit(
             train_ds,
             epochs=epochs,
