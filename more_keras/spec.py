@@ -73,12 +73,20 @@ def _input(spec):
     ragged = hasattr(tf, 'RaggedTensorSpec') and isinstance(
         spec, tf.RaggedTensorSpec)
     kwargs = dict(ragged=True) if ragged else {}
-    if ragged or isinstance(spec, tf.TensorSpec):
+    if ragged:
+        batch_size = spec._component_specs[1].shape[0]
+        if batch_size is not None:
+            batch_size = batch_size - 1
+        return tf.keras.layers.Input(shape=spec._shape[1:],
+                                     dtype=spec._component_specs[0].dtype,
+                                     name=spec._component_specs[0].name,
+                                     batch_size=batch_size,
+                                     ragged=True)
+    elif isinstance(spec, tf.TensorSpec):
         return tf.keras.layers.Input(shape=spec.shape[1:],
                                      dtype=spec.dtype,
                                      name=spec.name,
-                                     batch_size=spec.shape[0],
-                                     **kwargs)
+                                     batch_size=spec.shape[0])
     else:
         raise ValueError('Expected a tf.TensorSpec, got {}'.format(spec))
 

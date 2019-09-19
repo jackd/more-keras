@@ -168,8 +168,12 @@ def num_elements(x, dtype=np.int64):
 
 def repeat(values, repeats, axis):
     """See https://github.com/tensorflow/tensorflow/issues/8246."""
+    try:
+        repeat = tf.repeat
+    except AttributeError:
+        from tensorflow.python.ops.ragged.ragged_util import repeat  # pylint: disable=import-error
     if values.shape.ndims == 1:
-        return tf.repeat(values, repeats, axis=axis)
+        return repeat(values, repeats, axis=axis)
     else:
-        indices = tf.repeat(tf.range(tf.shape(values)[axis]), repeats)
+        indices = repeat(tf.range(tf.shape(values)[axis]), repeats, axis=0)
         return tf.gather(values, indices, axis=axis)
