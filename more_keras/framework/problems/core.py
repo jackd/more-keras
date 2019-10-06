@@ -70,7 +70,8 @@ class Problem(object):
     @staticmethod
     def current():
         if len(Problem._stack) == 0:
-            raise RuntimeError('Problem stack is empty')
+            # raise RuntimeError('Problem stack is empty')
+            return None
         return Problem._stack[-1]
 
     @staticmethod

@@ -72,7 +72,6 @@ def serialize(spec):
 def _input(spec):
     ragged = hasattr(tf, 'RaggedTensorSpec') and isinstance(
         spec, tf.RaggedTensorSpec)
-    kwargs = dict(ragged=True) if ragged else {}
     if ragged:
         batch_size = spec._component_specs[1].shape[0]
         if batch_size is not None:

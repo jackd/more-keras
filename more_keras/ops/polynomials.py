@@ -237,12 +237,14 @@ class GegenbauerPolynomialBuilder(RecursiveOrthogonalPolynomialBuilder):
 
 
 def _total_order_num_out(num_dims, max_order):
-    if num_dims == 0 or max_order == 0:
-        return 1
-    else:
-        return sum(
-            _total_order_num_out(num_dims - 1, max_order - i)
-            for i in range(max_order + 1))
+    from scipy.special import comb
+    return comb(num_dims + max_order, max_order)
+    # if num_dims == 0 or max_order == 0:
+    #     return 1
+    # else:
+    #     return sum(
+    #         _total_order_num_out(num_dims - 1, max_order - i)
+    #         for i in range(max_order + 1))
 
 
 class NdPolynomialBuilder(object):
@@ -261,15 +263,17 @@ class NdPolynomialBuilder(object):
         else:
             return num_dims * self._max_order - 1
 
-    def output_shape(self, input_shape):
-        return input_shape[:-1] + (self.num_out(input_shape[-1]),)
+    def output_shape(self, input_shape, axis=-1):
+        s = list(input_shape)
+        s[axis] = self.num_out(s[axis])
+        return tuple(s)
 
-    def __call__(self, coords):
+    def __call__(self, coords, axis=-1):
         if (self._max_order == 1 and self._is_total_order and
                 isinstance(self._base_builder, GeometricPolynomialBuilder)):
             return coords
         single_polys = []
-        coords = tf.unstack(coords, axis=-1)
+        coords = tf.unstack(coords, axis=axis)
         for x in coords:
             polys = self._base_builder(x, self._max_order + 1)
             single_polys.append(enumerate(polys))
@@ -283,9 +287,9 @@ class NdPolynomialBuilder(object):
                                     total_order > self._max_order):
                 continue
             outputs.append(tf.stack(polys, axis=-1))
-        outputs = tf.stack(outputs, axis=-2)
+        outputs = tf.stack(outputs, axis=axis)
         outputs = tf.reduce_prod(outputs, axis=-1)
-        assert (outputs.shape[-1] == self.num_out(len(coords)))
+        assert (outputs.shape[axis] == self.num_out(len(coords)))
         return outputs
 
 
@@ -320,6 +324,8 @@ def deserialize_builder(obj):
 def get_nd_polynomials(coords,
                        max_order=3,
                        is_total_order=True,
-                       base_builder=None):
+                       base_builder=None,
+                       axis=-1):
     base_builder = deserialize_builder(base_builder)
-    return NdPolynomialBuilder(max_order, is_total_order, base_builder)(coords)
+    return NdPolynomialBuilder(max_order, is_total_order,
+                               base_builder)(coords, axis=axis)
